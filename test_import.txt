@@ -1,0 +1,1 @@
+This is a test document imported into SmartNotes. Vector databases and local LLMs are cool.
