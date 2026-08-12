@@ -23,6 +23,7 @@ export const KnowledgeGraph: React.FC = () => {
   const graphRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [ForceGraph, setForceGraph] = useState<any>(null);
+  const [hoverNode, setHoverNode] = useState<GraphNode | null>(null);
 
   // Dynamically import react-force-graph-2d (it uses canvas, needs browser env)
   useEffect(() => {
@@ -71,12 +72,72 @@ export const KnowledgeGraph: React.FC = () => {
       <ForceGraph
         ref={graphRef}
         graphData={{ nodes: graphData.nodes, links: graphData.edges }}
-        nodeLabel="label"
+        nodeLabel={() => ''}
         nodeVal="val"
-        nodeColor={() => 'var(--color-accent)'}
-        linkColor={() => 'var(--color-border)'}
-        linkWidth={(link: any) => Math.max(1, (link.value || 0.5) * 3)}
+        linkColor={(link: any) => {
+          if (!hoverNode) return 'var(--color-border)';
+          return link.source.id === hoverNode.id || link.target.id === hoverNode.id 
+            ? 'var(--color-accent)' 
+            : 'rgba(150, 150, 150, 0.1)';
+        }}
+        linkWidth={(link: any) => {
+          if (hoverNode && (link.source.id === hoverNode.id || link.target.id === hoverNode.id)) return 3;
+          return Math.max(1, (link.value || 0.5) * 2);
+        }}
+        linkDirectionalParticles={(link: any) => {
+          if (hoverNode && (link.source.id === hoverNode.id || link.target.id === hoverNode.id)) return 4;
+          return 0;
+        }}
+        linkDirectionalParticleSpeed={0.005}
+        nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+          const label = node.label;
+          const fontSize = 13 / globalScale;
+          const size = Math.sqrt(node.val || 1) * 5;
+
+          const isDark = document.body.style.backgroundColor !== 'rgb(255, 255, 255)' && matchMedia('(prefers-color-scheme: dark)').matches;
+          const accentColor = isDark ? '#0a84ff' : '#007aff';
+          const textColor = isDark ? '#f5f5f7' : '#1d1d1f';
+          const bgColor = isDark ? '#1c1c1e' : '#ffffff';
+          const dimColor = isDark ? '#3a3a3c' : '#e5e5ea';
+
+          const isHovered = hoverNode?.id === node.id;
+          const isNeighbor = hoverNode ? graphData.edges.some((e: any) => 
+            (e.source.id === hoverNode.id && e.target.id === node.id) || 
+            (e.target.id === hoverNode.id && e.source.id === node.id)
+          ) : false;
+
+          let nodeColor = accentColor;
+          if (hoverNode && !isHovered && !isNeighbor) {
+            nodeColor = dimColor;
+          }
+
+          if (isHovered) {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, size + 4/globalScale, 0, 2 * Math.PI, false);
+            ctx.fillStyle = isDark ? 'rgba(10, 132, 255, 0.2)' : 'rgba(0, 122, 255, 0.2)';
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+          ctx.fillStyle = nodeColor;
+          ctx.fill();
+          
+          ctx.lineWidth = (isHovered ? 2.5 : 1.5) / globalScale;
+          ctx.strokeStyle = bgColor;
+          ctx.stroke();
+
+          const currentTextColor = hoverNode && !isHovered && !isNeighbor ? (isDark ? '#48484a' : '#c7c7cc') : textColor;
+          ctx.font = `${isHovered ? 'bold ' : ''}${fontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = currentTextColor;
+          
+          const labelYOffset = size + (isHovered ? 8/globalScale : 4/globalScale) + fontSize/2;
+          ctx.fillText(label, node.x, node.y + labelYOffset);
+        }}
         onNodeClick={handleNodeClick}
+        onNodeHover={(node: any) => setHoverNode(node || null)}
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.3}
         cooldownTicks={100}
