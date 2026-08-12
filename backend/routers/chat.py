@@ -4,6 +4,8 @@ Spec: GET /api/ask/stream, grounded answers from notes only, with citations.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import List, Optional
 from backend.services.search import hybrid_search
 from backend.db import get_db_connection
 import json
@@ -27,15 +29,30 @@ USER'S NOTES:
 """
 
 
-async def _generate_stream(question: str):
+class Message(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[Message]
+    provider: Optional[str] = "ollama"
+    api_key: Optional[str] = None
+
+async def _generate_stream(messages: List[Message], provider: str = "ollama", api_key: str = None):
     """
     RAG pipeline:
-    1. Hybrid search for relevant chunks
+    1. Hybrid search for relevant chunks using the latest user message
     2. Build context from top results
-    3. Stream response from Ollama
+    3. Stream response from Ollama using conversation history
     """
+    if not messages:
+        return
+        
+    # Get the latest question for RAG search
+    latest_msg = messages[-1].content
+    
     # 1. Retrieve relevant chunks
-    results = await hybrid_search(question, k=5)
+    results = await hybrid_search(latest_msg, k=5)
     
     if not results:
         msg = "I couldn't find any relevant notes to answer your question."
@@ -65,40 +82,77 @@ async def _generate_stream(question: str):
     context = "\n".join(context_parts)
     system_message = SYSTEM_PROMPT.format(context=context)
     
-    # 3. Stream from Ollama
+    # Limit conversation history to last 10 messages to avoid lag and token limits
+    history_to_send = messages[-10:] if len(messages) > 10 else messages
+    
+    # 3. Stream from AI provider
     try:
-        import ollama
-        
-        stream = ollama.chat(
-            model="llama3.2",
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": question}
-            ],
-            stream=True
-        )
-        
-        for chunk in stream:
-            token = chunk["message"]["content"]
-            yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
-            await asyncio.sleep(0)  # Yield control to event loop
+        if provider == "gemini":
+            from google import genai
+            if not api_key:
+                raise ValueError("Gemini API key is required but not provided in settings.")
+            
+            client = genai.Client(api_key=api_key)
+            gemini_contents = []
+            
+            # Add system instruction as the first user message
+            gemini_contents.append({"role": "user", "parts": [{"text": system_message}]})
+            gemini_contents.append({"role": "model", "parts": [{"text": "Understood. I will answer based only on the notes provided."}]})
+            
+            for m in history_to_send:
+                role = "user" if m.role == "user" else "model"
+                gemini_contents.append({"role": role, "parts": [{"text": m.content}]})
+                
+            response = client.models.generate_content_stream(
+                model="gemini-1.5-flash",
+                contents=gemini_contents
+            )
+            for chunk in response:
+                if chunk.text:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.text})}\n\n"
+                    await asyncio.sleep(0)
+                    
+        else:
+            import ollama
+            
+            ollama_messages = [{"role": "system", "content": system_message}]
+            for m in history_to_send:
+                ollama_messages.append({"role": m.role, "content": m.content})
+                
+            stream = ollama.chat(
+                model="llama3.2",
+                messages=ollama_messages,
+                stream=True
+            )
+            
+            for chunk in stream:
+                token = chunk["message"]["content"]
+                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+                await asyncio.sleep(0)  # Yield control to event loop
         
     except Exception as e:
-        logger.error(f"Ollama streaming error: {e}")
-        yield f"data: {json.dumps({'type': 'token', 'content': f'Error connecting to Ollama: {str(e)}. Make sure Ollama is running with llama3.2 model installed.'})}\n\n"
+        logger.error(f"AI streaming error: {e}")
+        err_str = str(e)
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+            clean_msg = "Error: Rate limit exceeded. You have run out of Gemini API tokens for now. Please wait a moment and try again."
+        elif "API key not valid" in err_str or "400" in err_str:
+            clean_msg = "Error: Invalid API key. Please check your Gemini API key in settings."
+        else:
+            clean_msg = f"Error from AI Provider ({provider}): {err_str}"
+        yield f"data: {json.dumps({'type': 'token', 'content': clean_msg})}\n\n"
     
     # Final event with sources
     yield f"data: {json.dumps({'type': 'done', 'sources': sources})}\n\n"
 
 
-@router.get("/stream")
-async def ask_stream(q: str, request: Request):
+@router.post("/stream")
+async def ask_stream(request_data: ChatRequest, request: Request):
     """
     SSE streaming endpoint for RAG chat.
-    Client consumes via EventSource API.
+    Client consumes via EventSource API (using fetch POST).
     """
     async def event_generator():
-        async for event in _generate_stream(q):
+        async for event in _generate_stream(request_data.messages, request_data.provider, request_data.api_key):
             # Check if client disconnected
             if await request.is_disconnected():
                 logger.info("Client disconnected, stopping stream")
