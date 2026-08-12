@@ -7,12 +7,12 @@ import { MessageSquare, Share2, Link } from 'lucide-react';
 const BACKEND_URL = 'http://127.0.0.1:8765/api/notes';
 
 // For now, let's just make the ContextPanel switch between views.
-export const ContextPanel: React.FC = () => {
+export const ContextPanel: React.FC<{ width?: number }> = ({ width = 280 }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'graph' | 'related'>('chat');
   
   return (
     <div style={{
-      width: '280px',
+      width: `${width}px`,
       height: '100%',
       backgroundColor: 'var(--color-bg-panel)',
       backdropFilter: 'blur(20px)',
