@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = React.useState(false);
   const [showGit, setShowGit] = React.useState(false);
   const [conflictNoteId, setConflictNoteId] = React.useState<string | null>(null);
+  const [contextWidth, setContextWidth] = React.useState(320);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -104,12 +105,44 @@ const App: React.FC = () => {
       />
 
       {/* Pane 2: Editor */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div style={{ flex: 1, position: 'relative', minWidth: '300px' }}>
         <Editor />
       </div>
 
+      {/* Resizer Handle */}
+      <div 
+        style={{ 
+          width: '6px', 
+          cursor: 'col-resize', 
+          backgroundColor: 'transparent', 
+          zIndex: 100,
+          position: 'relative'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--color-border)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          const startX = e.clientX;
+          const startWidth = contextWidth;
+          const onMouseMove = (moveEvent: MouseEvent) => {
+            const newWidth = startWidth - (moveEvent.clientX - startX);
+            setContextWidth(Math.max(250, Math.min(800, newWidth)));
+          };
+          const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+          };
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        }}
+      />
+
       {/* Pane 3: Context Panel */}
-      <ContextPanel />
+      <ContextPanel width={contextWidth} />
 
       {/* Modals */}
       {showSearch && <SearchPanel onClose={() => setShowSearch(false)} />}
