@@ -2,11 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface SettingsState {
-  aiProvider: 'ollama' | 'openai' | 'mistral' | 'sbert';
+  aiProvider: 'ollama' | 'openai' | 'mistral' | 'sbert' | 'gemini';
   autoLinkThreshold: number;
   notesDir: string;
   openaiKey: string;
   mistralKey: string;
+  geminiKey: string;
   githubPat: string;
   githubRepo: string;
   setAiProvider: (provider: SettingsState['aiProvider']) => void;
@@ -14,6 +15,7 @@ interface SettingsState {
   setNotesDir: (dir: string) => void;
   setOpenaiKey: (key: string) => void;
   setMistralKey: (key: string) => void;
+  setGeminiKey: (key: string) => void;
   setGithubPat: (pat: string) => void;
   setGithubRepo: (repo: string) => void;
 }
@@ -26,6 +28,7 @@ export const useSettingsStore = create<SettingsState>()(
       notesDir: '',
       openaiKey: '',
       mistralKey: '',
+      geminiKey: '',
       githubPat: '',
       githubRepo: '',
 
@@ -34,6 +37,7 @@ export const useSettingsStore = create<SettingsState>()(
       setNotesDir: (dir) => set({ notesDir: dir }),
       setOpenaiKey: (key) => set({ openaiKey: key }),
       setMistralKey: (key) => set({ mistralKey: key }),
+      setGeminiKey: (key) => set({ geminiKey: key }),
       setGithubPat: (pat) => set({ githubPat: pat }),
       setGithubRepo: (repo) => set({ githubRepo: repo }),
     }),
