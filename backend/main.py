@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, Header, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from contextlib import asynccontextmanager
@@ -16,6 +17,14 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown (if any)
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 IPC_TOKEN = os.environ.get("IPC_TOKEN")
 
