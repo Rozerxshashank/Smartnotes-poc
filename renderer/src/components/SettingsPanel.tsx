@@ -59,6 +59,7 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
               }}
             >
               <option value="ollama">Ollama (Local - Requires installation)</option>
+              <option value="gemini">Google Gemini (Cloud - Requires API Key)</option>
               <option value="mistral">Mistral AI (Cloud - Requires API Key)</option>
               <option value="openai">OpenAI (Cloud - Requires API Key)</option>
               <option value="sbert">SBERT Fallback (Local CPU - Embeddings only)</option>
@@ -80,6 +81,16 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 placeholder="Mistral API Key"
                 value={settings.mistralKey}
                 onChange={(e) => settings.setMistralKey(e.target.value)}
+                style={inputStyle}
+              />
+            )}
+            
+            {settings.aiProvider === 'gemini' && (
+              <input
+                type="password"
+                placeholder="Gemini API Key"
+                value={settings.geminiKey}
+                onChange={(e) => settings.setGeminiKey(e.target.value)}
                 style={inputStyle}
               />
             )}
