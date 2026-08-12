@@ -85,15 +85,17 @@ function createWindow(isError: boolean = false) {
     }
   });
 
-  // Strict CSP
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src 'self'; connect-src 'self' http://127.0.0.1:8765; style-src 'self' 'unsafe-inline'"]
-      }
+  // Strict CSP for production
+  if (app.isPackaged) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': ["default-src 'self'; connect-src 'self' http://127.0.0.1:8765; style-src 'self' 'unsafe-inline'"]
+        }
+      });
     });
-  });
+  }
 
   if (isError) {
     mainWindow.loadFile(path.join(__dirname, '../../renderer/error.html'));
@@ -101,7 +103,7 @@ function createWindow(isError: boolean = false) {
   }
 
   // Load React app
-  if (process.env.NODE_ENV === 'development') {
+  if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
