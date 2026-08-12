@@ -73,9 +73,9 @@ export const Sidebar: React.FC<{
                 }
               }}
               style={{
-                padding: 'var(--spacing-sm) var(--spacing-md)',
-                marginBottom: '4px',
-                borderRadius: 'var(--radius-button)',
+                padding: '8px 12px',
+                margin: '0 8px 4px 8px',
+                borderRadius: '8px',
                 backgroundColor: activeNoteId === note.id ? 'var(--color-accent)' : 'transparent',
                 color: activeNoteId === note.id ? '#ffffff' : 'var(--color-text-primary)',
                 cursor: 'pointer',
