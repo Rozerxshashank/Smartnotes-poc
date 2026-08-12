@@ -21,6 +21,12 @@ async def vector_search(query: str, k: int = 10) -> list[dict]:
 
 async def keyword_search(query: str, k: int = 10) -> list[dict]:
     """Search via SQLite FTS5 keyword match."""
+    import re
+    # Sanitize query for FTS5 to prevent syntax errors with quotes, punctuation, etc.
+    safe_query = re.sub(r'[^\w\s]', ' ', query).strip()
+    if not safe_query:
+        return []
+        
     db = await get_db_connection()
     try:
         # FTS5 match query
@@ -34,7 +40,7 @@ async def keyword_search(query: str, k: int = 10) -> list[dict]:
             ORDER BY rank
             LIMIT ?
             """,
-            (query, k)
+            (safe_query, k)
         ) as cursor:
             rows = await cursor.fetchall()
             return [
